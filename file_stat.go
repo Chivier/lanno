@@ -106,9 +106,18 @@ func dateFormatDarwin(date string) string {
 	return formattedTime
 }
 
-func AddTagToFile(fileName string, tag string) {
+func TagCommand(command []string, path string) {
+	filePath := "./.lanno.json"
+	if _, err := os.Stat(filePath); os.IsNotExist(err) {
+		// Create a new .lanno.json file on the path
+		_, err := os.Create(filePath)
+		if err != nil {
+			log.Fatal(err)
+		}
+	}
+
 	// Read the JSON data
-	file, err := os.Open(".lanno.json")
+	file, err := os.Open(filePath)
 	if err != nil {
 		fmt.Println("Error opening file:", err)
 		return
@@ -129,42 +138,78 @@ func AddTagToFile(fileName string, tag string) {
 		return
 	}
 
-	// Add the tag to the appropriate file
-	for i, fileInfo := range data.FileInfo {
-		if fileInfo.Name == fileName {
-			data.FileInfo[i].Tags = append(fileInfo.Tags, tag)
+	// if the file is not in the list, add it
+	found := false
+	fileIndex := -1
+	var tagList []string
+	for i, item := range data.FileInfo {
+		if item.Name == path {
+			tagList = item.Tags
+			found = true
+			fileIndex = i
 			break
 		}
 	}
 
-	// Convert the updated data back into JSON
-	updatedJSON, err := json.Marshal(data)
+	if !found {
+		fileIndex = len(data.FileInfo)
+		data.FileInfo = append(data.FileInfo, FileInfo{Name: path, Tags: []string{}, Description: ""})
+	}
+
+	for _, tagCommand := range command {
+		tagString := "#" + tagCommand[1:]
+		if tagCommand[0] == '+' {
+			tagList = append(tagList, tagString)
+		} else {
+			// if the tag is int the list, remove it
+			for i, tag := range tagList {
+				if tag == tagString {
+					tagList = append(tagList[:i], tagList[i+1:]...)
+					break
+				}
+			}
+		}
+	}
+	// print the tag list
+	fmt.Println(tagList)
+
+	// save the tag list
+	data.FileInfo[fileIndex].Tags = tagList
+	// save data back to the file
+	file, err = os.OpenFile(filePath, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0755)
 	if err != nil {
-		fmt.Println("Error converting data to JSON:", err)
+		fmt.Println("Error opening file:", err)
+		return
+	}
+	// Write the JSON data
+	byteValue, err = json.Marshal(data)
+	if err != nil {
+		fmt.Println("Error parsing JSON:", err)
+		return
+	}
+	_, err = file.Write(byteValue)
+	if err != nil {
+		fmt.Println("Error writing file:", err)
 		return
 	}
 
-	// Write the updated JSON data back to the file
-	err = os.WriteFile(".lanno.json", updatedJSON, 0644)
-	if err != nil {
-		fmt.Println("Error writing to file:", err)
-		return
-	}
+	defer file.Close()
+	return
 }
 
 func GetInfoFromAnnoFile(path string) []FileInfo {
 	// Check if ther is a ".lanno.json" file in current folder
-	file_path := path + "/.lanno.json"
-	if _, err := os.Stat(file_path); os.IsNotExist(err) {
+	filePath := path + "/.lanno.json"
+	if _, err := os.Stat(filePath); os.IsNotExist(err) {
 		// Create a new .lanno.json file on the path
-		_, err := os.Create(file_path)
+		_, err := os.Create(filePath)
 		if err != nil {
 			log.Fatal(err)
 		}
 	}
 
 	// Read the JSON data
-	file, err := os.Open(file_path)
+	file, err := os.Open(filePath)
 	if err != nil {
 		fmt.Println("Error opening file:", err)
 		return []FileInfo{}
@@ -272,9 +317,21 @@ func GetTableItems(path string) []table.Row {
 				break
 			}
 		}
+
+		// if this is a file, use the file icon
+		// if this is a folder, use the folder icon
+		// if this is a link, use the link icon
+
+		icon := ""
+		if file.IsDir() {
+			icon = "📁"
+		} else {
+			icon = "📄"
+		}
+
 		row := table.NewRow(table.RowData{
 			columnKeyFilename:    file.Name(),
-			columnKeyIcons:       "",
+			columnKeyIcons:       icon,
 			columnKeyTags:        strings.Join(lannoinfoItem.Tags, ", "),
 			columnKeyCreatedTime: commandItem.createTime,
 			columnKeyUpdatedTime: commandItem.lastUpdatedTime,
