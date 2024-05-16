@@ -1,0 +1,22 @@
+{
+    "file_info": [
+        {
+            "name": "File 1",
+            "tags": [
+                "xxxx",
+                "xxx",
+                "xxx"
+            ],
+            "description": "hi"
+        },
+        {
+            "name": "File 2",
+            "tags": [
+                "xxxx",
+                "yyy",
+                "zzz"
+            ],
+            "description": "hi"
+        }
+    ]
+}
