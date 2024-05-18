@@ -22,16 +22,17 @@ var baseStyle = lipgloss.NewStyle().
 	BorderStyle(lipgloss.NormalBorder()).
 	BorderForeground(lipgloss.Color("240"))
 
-var kLoginWidth = [6]int{5, 1, 4, 2, 2, 2}
+var kLoginWidth = [6]int{5, 1, 4, 6, 0, 0}
 
 const kFlexIndex = 1 // tag column is flexible
 const (
 	columnKeyFilename    = "filename"
 	columnKeyIcons       = "icons"
 	columnKeyTags        = "tags"
-	columnKeyCreatedTime = "created_time"
-	columnKeyUpdatedTime = "updated_time"
-	columnKeyVisitedTime = "visited_time"
+	columnKeyDescription = "description"
+	//columnKeyCreatedTime = "created_time"
+	//columnKeyUpdatedTime = "updated_time"
+	//columnKeyVisitedTime = "visited_time"
 )
 
 type FileModel struct {
@@ -156,11 +157,40 @@ func TagCommand(command []string, path string) {
 		data.FileInfo = append(data.FileInfo, FileInfo{Name: path, Tags: []string{}, Description: ""})
 	}
 
+	// Chech if this is a tag command for update description
+	firstCommand := command[0]
+	if firstCommand[0] != '+' && firstCommand[0] != '-' {
+		// Concatenate all the commands to get the description
+		description := ""
+		for _, commandItem := range command {
+			description += commandItem + " "
+		}
+		// save the description
+		data.FileInfo[fileIndex].Description = description
+		// save data back to the file
+		file, err = os.OpenFile(filePath, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0755)
+		if err != nil {
+			fmt.Println("Error opening file:", err)
+			return
+		}
+		// Write the JSON data
+		byteValue, err = json.Marshal(data)
+		if err != nil {
+			fmt.Println("Error parsing JSON:", err)
+			return
+		}
+		_, err = file.Write(byteValue)
+		if err != nil {
+			fmt.Println("Error writing file:", err)
+			return
+		}
+		defer file.Close()
+	}
 	for _, tagCommand := range command {
 		tagString := "#" + tagCommand[1:]
 		if tagCommand[0] == '+' {
 			tagList = append(tagList, tagString)
-		} else {
+		} else if tagCommand[0] == '-' {
 			// if the tag is int the list, remove it
 			for i, tag := range tagList {
 				if tag == tagString {
@@ -311,7 +341,7 @@ func GetTableItems(path string) []table.Row {
 			continue // Skip hidden files
 		}
 		// Get information from file system
-		commandItem := GetInfoFromFileSystem(path + "/" + file.Name())
+		//commandItem := GetInfoFromFileSystem(path + "/" + file.Name())
 		// Get information from anno
 		lannoinfoItem := lannoInfoMap[file.Name()]
 
@@ -328,12 +358,12 @@ func GetTableItems(path string) []table.Row {
 
 		//println("tags: ", strings.Join(lannoinfoItem.Tags, ", "))
 		row := table.NewRow(table.RowData{
-			columnKeyFilename:    file.Name(),
-			columnKeyIcons:       icon,
-			columnKeyTags:        strings.Join(lannoinfoItem.Tags, ", "),
-			columnKeyCreatedTime: commandItem.createTime,
-			columnKeyUpdatedTime: commandItem.lastUpdatedTime,
-			columnKeyVisitedTime: commandItem.lastVisitedTime,
+			columnKeyFilename: file.Name(),
+			columnKeyIcons:    icon,
+			columnKeyTags:     strings.Join(lannoinfoItem.Tags, ", "),
+			//columnKeyCreatedTime: commandItem.createTime,
+			//columnKeyUpdatedTime: commandItem.lastUpdatedTime,
+			//columnKeyVisitedTime: commandItem.lastVisitedTime,
 		})
 
 		resultTable = append(resultTable, row)
@@ -370,8 +400,9 @@ func NewModel() FileModel {
 		table.NewColumn(columnKeyFilename, "File/Folder Name", tableWidth[0]).WithFiltered(true),
 		table.NewColumn(columnKeyIcons, "Icons", tableWidth[1]),
 		table.NewColumn(columnKeyTags, "Tags", tableWidth[2]).WithFiltered(true),
-		table.NewColumn(columnKeyCreatedTime, "Created Time", tableWidth[3]),
-		table.NewColumn(columnKeyUpdatedTime, "Last Updated Time", tableWidth[4]),
+		table.NewColumn(columnKeyDescription, "Description", tableWidth[3]),
+		//table.NewColumn(columnKeyCreatedTime, "Created Time", tableWidth[3]),
+		//table.NewColumn(columnKeyUpdatedTime, "Last Updated Time", tableWidth[4]),
 		//table.NewColumn(columnKeyVisitedTime, "Last Visited Time", tableWidth[5]),
 	}
 
