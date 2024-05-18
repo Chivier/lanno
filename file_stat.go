@@ -19,8 +19,7 @@ import (
 )
 
 var baseStyle = lipgloss.NewStyle().
-	BorderStyle(lipgloss.NormalBorder()).
-	BorderForeground(lipgloss.Color("240"))
+	BorderStyle(lipgloss.NormalBorder())
 
 var kLoginWidth = [6]int{5, 1, 4, 6, 0, 0}
 
@@ -65,8 +64,28 @@ func (m FileModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 func (m FileModel) View() string {
 	return baseStyle.Render(m.table.View()) + "\n"
+	// Safety valve for empty tables
 }
 
+//	func (m FileModel) View() string {
+//		var b strings.Builder
+//
+//		for i, row := range m.table.Rows() {
+//			style := baseStyle
+//
+//			// Check if the row is selected
+//			if m.table.IsSelected(i) {
+//				// If the row is selected, apply bold font and yellow color
+//				style = style.Bold(true).Foreground(lipgloss.Color("3"))
+//			}
+//
+//			// Render the row with the applied style
+//			b.WriteString(style.Render(row.View()))
+//			b.WriteRune('\n')
+//		}
+//
+//		return b.String()
+//	}
 type FileInfo struct {
 	Name        string   `json:"name"`
 	Tags        []string `json:"tags"`
@@ -159,12 +178,14 @@ func TagCommand(command []string, path string) {
 
 	// Chech if this is a tag command for update description
 	firstCommand := command[0]
+	println("firstCommand: ", firstCommand)
 	if firstCommand[0] != '+' && firstCommand[0] != '-' {
 		// Concatenate all the commands to get the description
 		description := ""
 		for _, commandItem := range command {
 			description += commandItem + " "
 		}
+		println("description: ", description)
 		// save the description
 		data.FileInfo[fileIndex].Description = description
 		// save data back to the file
@@ -358,9 +379,10 @@ func GetTableItems(path string) []table.Row {
 
 		//println("tags: ", strings.Join(lannoinfoItem.Tags, ", "))
 		row := table.NewRow(table.RowData{
-			columnKeyFilename: file.Name(),
-			columnKeyIcons:    icon,
-			columnKeyTags:     strings.Join(lannoinfoItem.Tags, ", "),
+			columnKeyFilename:    file.Name(),
+			columnKeyIcons:       icon,
+			columnKeyTags:        strings.Join(lannoinfoItem.Tags, ", "),
+			columnKeyDescription: lannoinfoItem.Description,
 			//columnKeyCreatedTime: commandItem.createTime,
 			//columnKeyUpdatedTime: commandItem.lastUpdatedTime,
 			//columnKeyVisitedTime: commandItem.lastVisitedTime,
@@ -397,7 +419,7 @@ func NewModel() FileModel {
 	}
 
 	columns := []table.Column{
-		table.NewColumn(columnKeyFilename, "File/Folder Name", tableWidth[0]).WithFiltered(true),
+		table.NewColumn(columnKeyFilename, "Name", tableWidth[0]).WithFiltered(true),
 		table.NewColumn(columnKeyIcons, "Icons", tableWidth[1]),
 		table.NewColumn(columnKeyTags, "Tags", tableWidth[2]).WithFiltered(true),
 		table.NewColumn(columnKeyDescription, "Description", tableWidth[3]),
