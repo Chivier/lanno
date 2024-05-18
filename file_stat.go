@@ -253,7 +253,11 @@ func GetInfoFromAnnoFile(path string) map[string]FileInfo {
 	filePath := path + "/.lanno.json"
 	if _, err := os.Stat(filePath); os.IsNotExist(err) {
 		// Create a new .lanno.json file on the path
-		_, err := os.Create(filePath)
+        // Write {} to empty json file
+		println("create file")
+		file, err := os.Create(filePath)
+		file.WriteString("{}")
+		file.Close()
 		if err != nil {
 			log.Fatal(err)
 		}

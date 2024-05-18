@@ -7,8 +7,6 @@ import (
 )
 
 func view() {
-	GetInfoFromFileSystem(".")
-
 	p := tea.NewProgram(NewModel())
 	if err := p.Start(); err != nil {
 		log.Fatal(err)
