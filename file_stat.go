@@ -150,6 +150,9 @@ func TagCommand(command []string, path string) {
 		return
 	}
 
+	// Convert path to name
+	path = path[strings.LastIndex(path, "/")+1:]
+
 	// Parse JSON data
 	var data LannoFileData
 	err = json.Unmarshal(byteValue, &data)
@@ -288,6 +291,10 @@ func GetInfoFromAnnoFile(path string) map[string]FileInfo {
 	// Access the parsed data
 	fileInfoMap := make(map[string]FileInfo)
 	for _, item := range data.FileInfo {
+		// if item.Name begin with "./", remove it
+		if strings.HasPrefix(item.Name, "./") {
+			item.Name = item.Name[2:]
+		}
 		fileInfoMap[item.Name] = item
 	}
 
