@@ -197,7 +197,7 @@ func TagCommand(command []string, path string) {
 	return
 }
 
-func GetInfoFromAnnoFile(path string) []FileInfo {
+func GetInfoFromAnnoFile(path string) map[string]FileInfo {
 	// Check if ther is a ".lanno.json" file in current folder
 	filePath := path + "/.lanno.json"
 	if _, err := os.Stat(filePath); os.IsNotExist(err) {
@@ -212,14 +212,14 @@ func GetInfoFromAnnoFile(path string) []FileInfo {
 	file, err := os.Open(filePath)
 	if err != nil {
 		fmt.Println("Error opening file:", err)
-		return []FileInfo{}
+		return map[string]FileInfo{}
 	}
 	defer file.Close()
 
 	byteValue, err := io.ReadAll(file)
 	if err != nil {
 		fmt.Println("Error reading file:", err)
-		return []FileInfo{}
+		return map[string]FileInfo{}
 	}
 
 	// Parse JSON data
@@ -227,13 +227,16 @@ func GetInfoFromAnnoFile(path string) []FileInfo {
 	err = json.Unmarshal(byteValue, &data)
 	if err != nil {
 		fmt.Println("Error parsing JSON:", err)
-		return []FileInfo{}
+		return map[string]FileInfo{}
 	}
 
 	// Access the parsed data
-	fileInfo := data.FileInfo
+	fileInfoMap := make(map[string]FileInfo)
+	for _, item := range data.FileInfo {
+		fileInfoMap[item.Name] = item
+	}
 
-	return fileInfo
+	return fileInfoMap
 }
 
 func GoExecStatCommand(command string) string {
@@ -287,7 +290,7 @@ func GetInfoFromFileSystem(path string) CommandItem {
 
 func GetTableItems(path string) []table.Row {
 	// Get information from sqlite
-	lannoFileInfoList := GetInfoFromAnnoFile(path)
+	lannoInfoMap := GetInfoFromAnnoFile(path)
 
 	// List out all files and folders in path, ignore hidden files
 	files, err := os.ReadDir(path)
@@ -310,13 +313,7 @@ func GetTableItems(path string) []table.Row {
 		// Get information from file system
 		commandItem := GetInfoFromFileSystem(path + "/" + file.Name())
 		// Get information from anno
-		lannoinfoItem := FileInfo{}
-		for _, item := range lannoFileInfoList {
-			if item.Name == file.Name() {
-				lannoinfoItem = item
-				break
-			}
-		}
+		lannoinfoItem := lannoInfoMap[file.Name()]
 
 		// if this is a file, use the file icon
 		// if this is a folder, use the folder icon
@@ -329,6 +326,7 @@ func GetTableItems(path string) []table.Row {
 			icon = "📄"
 		}
 
+		//println("tags: ", strings.Join(lannoinfoItem.Tags, ", "))
 		row := table.NewRow(table.RowData{
 			columnKeyFilename:    file.Name(),
 			columnKeyIcons:       icon,
