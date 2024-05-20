@@ -18,8 +18,6 @@ Also, sometimes I wanna share my projects with my friends and co-workers. But th
 
 
 
-Anyway, It's a long story, see my blog for more details.
-
 
 
 ## How to use lanno
