@@ -209,6 +209,7 @@ func TagCommand(command []string, path string) {
 			return
 		}
 		defer file.Close()
+		return
 	}
 	for _, tagCommand := range command {
 		tagString := "#" + tagCommand[1:]
@@ -256,7 +257,7 @@ func GetInfoFromAnnoFile(path string) map[string]FileInfo {
 	filePath := path + "/.lanno.json"
 	if _, err := os.Stat(filePath); os.IsNotExist(err) {
 		// Create a new .lanno.json file on the path
-        // Write {} to empty json file
+		// Write {} to empty json file
 		println("create file")
 		file, err := os.Create(filePath)
 		file.WriteString("{}")
