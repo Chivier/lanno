@@ -1,48 +1,84 @@
 # Lanno
 
-![ZberJv7wbl9NbituD6vyzgNeiljUpO](image/logo.webp)
-
-
+![Lanno Logo](image/logo.webp)
 
 ## What is Lanno?
 
-Lanno = "ls" with "anno"tation.
+Lanno is a command-line tool designed to enhance code organization and documentation by providing annotations for files, akin to using the `ls` command but with additional metadata.
 
-![image-20240520002210021](image/image-1.png)
+![Lanno Example](image/image-1.png)
 
-## Why I need anno?
+## Why Do I Need Annotations?
 
-TL;DR:
+### TL;DR:
 
-OK, I love copilot, but copilot is really bad when it comes to code structure. But this task should be more simple than code auto-completion. I wanna build a tool to provide more information for end-to-end code project training.
+While tools like Copilot are great for auto-completing code, they often fall short in organizing code structure. Lanno simplifies this process by offering a more straightforward solution. It aims to streamline end-to-end project training by providing comprehensive information about each file.
 
+### Detailed Explanation:
 
+- **Improved Code Structure:** Lanno helps maintain a clean and well-documented codebase by allowing you to annotate files with tags and descriptions, making it easier to understand the role of each file at a glance.
+- **Ease of Collaboration:** Sharing projects with colleagues or friends can be cumbersome when they're unfamiliar with the purpose of each file. Lanno allows users to document file usage efficiently, eliminating the need to painstakingly explain each file's function individually.
+- **Enhanced Documentation:** Sometimes, writing detailed documentation for every file is time-consuming. Lanno provides a quick way to add relevant information directly to the files, making it accessible and less likely to be overlooked.
 
-Also, sometimes I wanna share my projects with my friends and co-workers. But they don't know what's those file for. And sometimes I am too lazy to write every file's usage information in the documents(or sometimes we're just lazy to check the documents).
+## How to Use Lanno
 
+### Viewing Annotations
 
-
-
-
-## How to use lanno
-
-### View mode
+To view annotations for files, simply run:
 
 ```bash
 lanno
 ```
 
-### Add/Remove tag
+This command will list all files in the directory along with their associated annotations.
+
+### Adding or Removing Tags
+
+You can add or remove tags for a file using the following command format:
 
 ```bash
 lanno file +tag1 +tag2 -tag3
 ```
 
-### Add description
+- `+tag`: Adds a tag to the file.
+- `-tag`: Removes a tag from the file.
+
+### Adding Descriptions
+
+To add a description to a file, use the following command format:
 
 ```bash
-lanno file This is a description
+lanno file "This is a description"
 ```
 
+This will attach the provided description to the specified file.
 
+### Example Usage
 
+1. **View Annotations:**
+    ```bash
+    lanno
+    ```
+    This will display a list of files with their annotations.
+
+2. **Add Tags to a File:**
+    ```bash
+    lanno example.py +script +utility
+    ```
+    This will add the tags `script` and `utility` to `example.py`.
+
+3. **Remove a Tag from a File:**
+    ```bash
+    lanno example.py -utility
+    ```
+    This will remove the tag `utility` from `example.py`.
+
+4. **Add a Description to a File:**
+    ```bash
+    lanno example.py This script processes data.
+    ```
+    This will add the description "This script processes data." to `example.py`.
+
+---
+
+By using Lanno, you can ensure your projects are well-documented and easily understandable by anyone who accesses your code. Happy coding!
