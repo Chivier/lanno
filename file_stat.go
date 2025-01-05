@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"golang.org/x/term"
 	"io"
 	"log"
 	"os"
@@ -12,6 +11,8 @@ import (
 	"runtime"
 	"strings"
 	"time"
+
+	"golang.org/x/term"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
@@ -42,25 +43,33 @@ func (m FileModel) Init() tea.Cmd {
 	return nil
 }
 
-func (m FileModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
-	var (
-		cmd  tea.Cmd
-		cmds []tea.Cmd
-	)
+// func (m FileModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+// 	var (
+// 		cmd  tea.Cmd
+// 		cmds []tea.Cmd
+// 	)
 
-	m.table, cmd = m.table.Update(msg)
-	cmds = append(cmds, cmd)
+// 	switch msg := msg.(type) {
+// 	case tea.KeyMsg:
+// 		switch msg.String() {
+// 		case "ctrl+c", "q":
+// 			cmds = append(cmds, tea.Quit)
+// 		case "e":
+// 			// Get the selected row
+// 			if selected := m.table.SelectedRows(); len(selected) > 0 {
+// 				filename := selected[0].Data[columnKeyFilename].(string)
+// 				// Launch external editor for the selected file
+// 				cmds = append(cmds, launchEditor(filename))
+// 			}
+// 		}
+// 	}
 
-	switch msg := msg.(type) {
-	case tea.KeyMsg:
-		switch msg.String() {
-		case "ctrl+c", "q":
-			cmds = append(cmds, tea.Quit)
-		}
-	}
+// 	// Move table update after our custom key handling
+// 	m.table, cmd = m.table.Update(msg)
+// 	cmds = append(cmds, cmd)
 
-	return m, tea.Batch(cmds...)
-}
+// 	return m, tea.Batch(cmds...)
+// }
 
 func (m FileModel) View() string {
 	return baseStyle.Render(m.table.View()) + "\n"
@@ -444,9 +453,125 @@ func NewModel() FileModel {
 		Filtered(true).
 		Focused(true).
 		WithPageSize(30).
-		WithRows(GetTableItems("."))
+		WithRows(GetTableItems(".")).
+		WithKeyMap(table.DefaultKeyMap())
 
 	return FileModel{
 		t,
 	}
+}
+
+func (m FileModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+    var (
+        cmd  tea.Cmd
+        cmds []tea.Cmd
+    )
+
+    switch msg := msg.(type) {
+    case tea.KeyMsg:
+        switch msg.String() {
+        case "ctrl+c", "q":
+            cmds = append(cmds, tea.Quit)
+        case "e":
+            // Get the selected row
+            selected := m.table.SelectedRows()
+            if selected != nil {
+                filename := selected[0].Data[columnKeyFilename].(string)
+                // Launch external editor for the selected file
+                cmds = append(cmds, launchEditor(filename))
+            }
+        }
+    }
+
+    // Handle table updates
+    newTable, cmd := m.table.Update(msg)
+    m.table = newTable
+    if cmd != nil {
+        cmds = append(cmds, cmd)
+    }
+
+    return m, tea.Batch(cmds...)
+}
+
+func launchEditor(filename string) tea.Cmd {
+    return func() tea.Msg {
+        // Read current .lanno.json
+        data := GetInfoFromAnnoFile(".")
+        fileInfo := data[filename]
+        
+        // Create temporary file with current info
+        tmpFile, err := os.CreateTemp("", "lanno-*.json")
+        if err != nil {
+            log.Printf("Error creating temp file: %v", err)
+            return nil
+        }
+        defer os.Remove(tmpFile.Name())
+
+        // Write current file info to temp file
+        tempFileInfo := map[string]interface{}{
+            "name": filename,
+            "tags": fileInfo.Tags,
+            "description": fileInfo.Description,
+        }
+        
+        jsonData, err := json.MarshalIndent(tempFileInfo, "", "    ")
+        if err != nil {
+            log.Printf("Error marshaling JSON: %v", err)
+            return nil
+        }
+        
+        if _, err := tmpFile.Write(jsonData); err != nil {
+            log.Printf("Error writing to temp file: %v", err)
+            return nil
+        }
+        tmpFile.Close()
+
+        // Get editor from environment or default to vim
+        editor := os.Getenv("EDITOR")
+        if editor == "" {
+            editor = "vim"
+        }
+
+        // Launch editor
+        cmd := exec.Command(editor, tmpFile.Name())
+        cmd.Stdin = os.Stdin
+        cmd.Stdout = os.Stdout
+        cmd.Stderr = os.Stderr
+        
+        if err := cmd.Run(); err != nil {
+            log.Printf("Error running editor: %v", err)
+            return nil
+        }
+
+        // Read updated content
+        content, err := os.ReadFile(tmpFile.Name())
+        if err != nil {
+            log.Printf("Error reading updated file: %v", err)
+            return nil
+        }
+
+        // Parse updated content
+        var updatedInfo struct {
+            Name string   `json:"name"`
+            Tags []string `json:"tags"`
+            Description string `json:"description"`
+        }
+        if err := json.Unmarshal(content, &updatedInfo); err != nil {
+            log.Printf("Error parsing updated content: %v", err)
+            return nil
+        }
+
+        // Update .lanno.json
+        commands := []string{updatedInfo.Description}
+        for _, tag := range updatedInfo.Tags {
+            if !strings.HasPrefix(tag, "#") {
+                commands = append(commands, "+"+strings.TrimPrefix(tag, "#"))
+            } else {
+                commands = append(commands, "+"+strings.TrimPrefix(tag, "#"))
+            }
+        }
+        TagCommand(commands, filename)
+
+        return nil
+    }
 }
