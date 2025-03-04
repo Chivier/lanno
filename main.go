@@ -33,6 +33,9 @@ Interactive Mode:
     q or ctrl+c    # Quit
 `
 
+// Version represents the current application version
+const Version = "1.0.0"
+
 func printHelp() {
 	fmt.Print(helpText)
 	os.Exit(0)
@@ -46,6 +49,12 @@ func view() {
 }
 
 func main() {
+	// Check for version flag
+	if len(os.Args) > 1 && (os.Args[1] == "-v" || os.Args[1] == "--version") {
+		fmt.Printf("lanno v%s\n", Version)
+		os.Exit(0)
+	}
+
 	// Check for help flags
 	if len(os.Args) > 1 {
 		arg := os.Args[1]
