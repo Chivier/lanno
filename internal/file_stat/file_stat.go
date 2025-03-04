@@ -116,6 +116,12 @@ func TagCommand(command []string, path string) {
 		return
 	}
 
+	// Check if the JSON file is empty or has invalid format
+	if len(byteValue) == 0 || !json.Valid(byteValue) {
+		// Initialize with empty structure if file is empty or invalid
+		byteValue = []byte("{}")
+	}
+
 	path = path[strings.LastIndex(path, "/")+1:]
 	var data LannoFileData
 	err = json.Unmarshal(byteValue, &data)
@@ -140,6 +146,29 @@ func TagCommand(command []string, path string) {
 		data.FileInfo = append(data.FileInfo, FileInfo{Name: path, Tags: []string{}, Description: ""})
 	}
 
+	if len(command) == 0 {
+		description := ""
+		for _, commandItem := range command {
+			description += commandItem + " "
+		}
+		description = strings.TrimSpace(description)
+		data.FileInfo[fileIndex].Description = description
+		file, err = os.OpenFile(filePath, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0755)
+		if err != nil {
+			return
+		}
+		byteValue, err = json.MarshalIndent(data, "", "  ")
+		if err != nil {
+			return
+		}
+		_, err = file.Write(byteValue)
+		if err != nil {
+			return
+		}
+		defer file.Close()
+		return
+	}
+	
 	firstCommand := command[0]
 	if firstCommand[0] != '+' && firstCommand[0] != '-' {
 		description := ""
@@ -463,7 +492,10 @@ func (m FileModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				if command != "" {
 					words := strings.Fields(command)
 					TagCommand(words, m.inputTarget)
+				} else {
+					TagCommand([]string{}, m.inputTarget)
 				}
+
 				m.inputMode = false
 				m.inputBuffer = ""
 				m.inputTarget = ""
@@ -562,14 +594,20 @@ func filterRows(rows []table.Row, query string) []table.Row {
 	lowerQuery := strings.ToLower(query)
 	for _, row := range rows {
 		name := ""
+		tags := ""
 		desc := ""
 		if val, ok := row.Data[columnKeyFilename]; ok {
 			name = fmt.Sprintf("%v", val)
 		}
+		if val, ok := row.Data[columnKeyTags]; ok {
+			tags = fmt.Sprintf("%v", val)
+		}
 		if val, ok := row.Data[columnKeyDescription]; ok {
 			desc = fmt.Sprintf("%v", val)
 		}
-		if strings.Contains(strings.ToLower(name), lowerQuery) || strings.Contains(strings.ToLower(desc), lowerQuery) {
+		if strings.Contains(strings.ToLower(name), lowerQuery) || 
+		   strings.Contains(strings.ToLower(tags), lowerQuery) || 
+		   strings.Contains(strings.ToLower(desc), lowerQuery) {
 			filtered = append(filtered, row)
 		}
 	}
