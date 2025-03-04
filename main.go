@@ -29,12 +29,12 @@ Examples:
 
 Interactive Mode:
     /              # Search files
-    ctrl+e         # Edit selected file
+    ctrl+e         # Edit selected file tags or description, +<tag>, -<tag>, or <description>
     q or ctrl+c    # Quit
 `
 
 func printHelp() {
-	fmt.Println(helpText)
+	fmt.Print(helpText)
 	os.Exit(0)
 }
 

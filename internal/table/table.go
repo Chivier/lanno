@@ -9,12 +9,16 @@ import (
 	"github.com/mattn/go-runewidth"
 )
 
+//------------------------------------------------------------------------------
+// Column Definitions
+//------------------------------------------------------------------------------
+
 // Column represents a single table column.
 type Column struct {
-	Key      string
-	Title    string
-	Width    int
-	Filtered bool
+	Key      string // Unique identifier for the column
+	Title    string // Display title for the column header
+	Width    int    // Width of the column in characters
+	Filtered bool   // Whether this column should be included in filtering
 }
 
 // NewColumn creates a new column.
@@ -28,12 +32,16 @@ func (c Column) WithFiltered(filtered bool) Column {
 	return c
 }
 
+//------------------------------------------------------------------------------
+// Row Definitions
+//------------------------------------------------------------------------------
+
 // RowData is a convenient alias for a map representing row data.
 type RowData map[string]interface{}
 
 // Row represents a single table row.
 type Row struct {
-	Data RowData
+	Data RowData // Map of column keys to cell values
 }
 
 // NewRow creates a new row from the given RowData.
@@ -41,14 +49,19 @@ func NewRow(data RowData) Row {
 	return Row{Data: data}
 }
 
-// Add these style-related types and constants
+//------------------------------------------------------------------------------
+// Styling
+//------------------------------------------------------------------------------
+
+// Styles defines the visual appearance of different table elements
 type Styles struct {
-	Header   lipgloss.Style
-	Selected lipgloss.Style
-	Normal   lipgloss.Style
-	Border   lipgloss.Style
+	Header   lipgloss.Style // Style for the table header
+	Selected lipgloss.Style // Style for the selected row
+	Normal   lipgloss.Style // Style for normal (unselected) rows
+	Border   lipgloss.Style // Style for table borders
 }
 
+// DefaultStyles returns a set of default styles for the table
 func DefaultStyles() Styles {
 	return Styles{
 		Border: lipgloss.NewStyle().
@@ -66,15 +79,19 @@ func DefaultStyles() Styles {
 	}
 }
 
+//------------------------------------------------------------------------------
+// Table Definition
+//------------------------------------------------------------------------------
+
 // Table represents the table model.
 type Table struct {
-	Columns  []Column
-	Rows     []Row
-	PageSize int
-	Selected int
-	focused  bool
-	filtered bool
-	styles   Styles
+	Columns  []Column      // List of columns in the table
+	Rows     []Row         // List of data rows
+	PageSize int           // Number of rows to display per page
+	Selected int           // Index of the currently selected row
+	focused  bool          // Whether the table has focus
+	filtered bool          // Whether filtering is enabled
+	styles   Styles        // Visual styles for the table
 }
 
 // New creates a new table instance with the provided columns.
@@ -89,17 +106,23 @@ func New(columns []Column) *Table {
 	}
 }
 
+//------------------------------------------------------------------------------
+// Table Configuration Methods
+//------------------------------------------------------------------------------
+
 // WithPageSize sets the number of rows visible per page.
 func (t *Table) WithPageSize(ps int) *Table {
 	t.PageSize = ps
 	return t
 }
 
+// WithFiltered sets whether the table has filtering enabled.
 func (t *Table) WithFiltered(filtered bool) *Table {
 	t.filtered = filtered
 	return t
 }
 
+// WithFocused sets whether the table currently has focus.
 func (t *Table) WithFocused(focused bool) *Table {
 	t.focused = focused
 	return t
@@ -134,15 +157,21 @@ func (t *Table) SetStyles(s Styles) *Table {
 	return t
 }
 
+//------------------------------------------------------------------------------
+// Table Interaction Methods
+//------------------------------------------------------------------------------
+
 // Update handles key events to navigate through the table rows.
 func (t *Table) Update(msg tea.Msg) (*Table, tea.Cmd) {
 	if keyMsg, ok := msg.(tea.KeyMsg); ok {
 		switch keyMsg.String() {
 		case "up", "k":
+			// Move selection up
 			if t.Selected > 0 {
 				t.Selected--
 			}
 		case "down", "j":
+			// Move selection down
 			if t.Selected < len(t.Rows)-1 {
 				t.Selected++
 			}
@@ -159,6 +188,10 @@ func (t *Table) SelectedRows() []Row {
 	return []Row{t.Rows[t.Selected]}
 }
 
+//------------------------------------------------------------------------------
+// Rendering
+//------------------------------------------------------------------------------
+
 // View renders the table as a string.
 func (t *Table) View() string {
 	var b strings.Builder
@@ -167,12 +200,12 @@ func (t *Table) View() string {
 	headerRow := ""
 	for i, col := range t.Columns {
 		if i > 0 {
-			headerRow += "│"
+			headerRow += "│" // Add column separator
 		}
 		// Adjust width consistently with other rows
 		title := fmt.Sprintf("%-*s", col.Width, col.Title)
 		if len(title) > col.Width {
-			title = title[:col.Width-3] + "..."
+			title = title[:col.Width-3] + "..." // Truncate with ellipsis if too long
 		}
 		headerRow += title
 	}
@@ -183,9 +216,9 @@ func (t *Table) View() string {
 	separatorLine := ""
 	for i := 0; i < len(t.Columns); i++ {
 		if i > 0 {
-			separatorLine += "┼" + strings.Repeat("─", t.Columns[i].Width)
+			separatorLine += "┼" + strings.Repeat("─", t.Columns[i].Width) // Add intersection and horizontal line
 		} else {
-			separatorLine += strings.Repeat("─", t.Columns[i].Width)
+			separatorLine += strings.Repeat("─", t.Columns[i].Width) // Just horizontal line for first column
 		}
 	}
 	b.WriteString(separatorLine)
@@ -196,7 +229,7 @@ func (t *Table) View() string {
 		rowContent := ""
 		for j, col := range t.Columns {
 			if j > 0 {
-				rowContent += "│"
+				rowContent += "│" // Add column separator
 			}
 			cell := ""
 			if val, ok := row.Data[col.Key]; ok {
@@ -219,16 +252,16 @@ func (t *Table) View() string {
 							truncated += string(r)
 							currentWidth += charWidth
 						}
-						cell = truncated + "..."
+						cell = truncated + "..." // Add ellipsis to indicate truncation
 					} else {
-						cell = strings.Repeat(".", col.Width)
+						cell = strings.Repeat(".", col.Width) // For very narrow columns, just use dots
 					}
 				}
 				
 				// Pad to correct width considering visual width
 				padding := col.Width - runewidth.StringWidth(cell)
 				if padding > 0 {
-					cell = cell + strings.Repeat(" ", padding)
+					cell = cell + strings.Repeat(" ", padding) // Right-pad with spaces
 				}
 			} else {
 				// Empty cell with proper padding
@@ -237,11 +270,11 @@ func (t *Table) View() string {
 			
 			rowContent += cell
 		}
-		// Apply appropriate style
+		// Apply appropriate style based on selection state
 		if t.focused && i == t.Selected {
-			rowContent = t.styles.Selected.Render(rowContent)
+			rowContent = t.styles.Selected.Render(rowContent) // Highlight selected row
 		} else {
-			rowContent = t.styles.Normal.Render(rowContent)
+			rowContent = t.styles.Normal.Render(rowContent) // Normal styling for other rows
 		}
 		
 		b.WriteString(rowContent)

@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"log"
 	"os"
 	"os/exec"
 	"runtime"
@@ -41,6 +40,10 @@ type FileModel struct {
 	searchMode  bool
 	searchQuery string
 	allRows     []table.Row
+	inputMode   bool
+	inputPrompt string
+	inputBuffer string
+	inputTarget string
 }
 
 func (m FileModel) Init() tea.Cmd {
@@ -51,6 +54,9 @@ func (m FileModel) View() string {
 	view := baseStyle.Render(m.table.View())
 	if m.searchMode {
 		view += "\nSearch: " + m.searchQuery
+	}
+	if m.inputMode {
+		view += "\n" + m.inputPrompt + m.inputBuffer
 	}
 	return view + "\n"
 }
@@ -95,20 +101,18 @@ func TagCommand(command []string, path string) {
 	if _, err := os.Stat(filePath); os.IsNotExist(err) {
 		_, err := os.Create(filePath)
 		if err != nil {
-			log.Fatal(err)
+			return
 		}
 	}
 
 	file, err := os.Open(filePath)
 	if err != nil {
-		fmt.Println("Error opening file:", err)
 		return
 	}
 	defer file.Close()
 
 	byteValue, err := io.ReadAll(file)
 	if err != nil {
-		fmt.Println("Error reading file:", err)
 		return
 	}
 
@@ -116,7 +120,6 @@ func TagCommand(command []string, path string) {
 	var data LannoFileData
 	err = json.Unmarshal(byteValue, &data)
 	if err != nil {
-		fmt.Println("Error parsing JSON:", err)
 		return
 	}
 
@@ -138,27 +141,28 @@ func TagCommand(command []string, path string) {
 	}
 
 	firstCommand := command[0]
-	println("firstCommand: ", firstCommand)
 	if firstCommand[0] != '+' && firstCommand[0] != '-' {
 		description := ""
 		for _, commandItem := range command {
 			description += commandItem + " "
 		}
-		println("description: ", description)
+		description = strings.TrimSpace(description)
+		
+		// If description is empty or just spaces, set it to empty string
+		if description == "" {
+			description = ""
+		}
 		data.FileInfo[fileIndex].Description = description
 		file, err = os.OpenFile(filePath, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0755)
 		if err != nil {
-			fmt.Println("Error opening file:", err)
 			return
 		}
 		byteValue, err = json.MarshalIndent(data, "", "  ")
 		if err != nil {
-			fmt.Println("Error parsing JSON:", err)
 			return
 		}
 		_, err = file.Write(byteValue)
 		if err != nil {
-			fmt.Println("Error writing file:", err)
 			return
 		}
 		defer file.Close()
@@ -177,21 +181,17 @@ func TagCommand(command []string, path string) {
 			}
 		}
 	}
-	fmt.Println(tagList)
 	data.FileInfo[fileIndex].Tags = tagList
 	file, err = os.OpenFile(filePath, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0755)
 	if err != nil {
-		fmt.Println("Error opening file:", err)
 		return
 	}
 	byteValue, err = json.MarshalIndent(data, "", "  ")
 	if err != nil {
-		fmt.Println("Error parsing JSON:", err)
 		return
 	}
 	_, err = file.Write(byteValue)
 	if err != nil {
-		fmt.Println("Error writing file:", err)
 		return
 	}
 
@@ -202,30 +202,26 @@ func TagCommand(command []string, path string) {
 func GetInfoFromAnnoFile(path string) map[string]FileInfo {
 	filePath := path + "/.lanno.json"
 	if _, err := os.Stat(filePath); os.IsNotExist(err) {
-		println("create file")
 		file, err := os.Create(filePath)
 		file.WriteString("{}")
 		file.Close()
 		if err != nil {
-			log.Fatal(err)
+			return map[string]FileInfo{}
 		}
 	}
 	file, err := os.Open(filePath)
 	if err != nil {
-		fmt.Println("Error opening file:", err)
 		return map[string]FileInfo{}
 	}
 	defer file.Close()
 
 	byteValue, err := io.ReadAll(file)
 	if err != nil {
-		fmt.Println("Error reading file:", err)
 		return map[string]FileInfo{}
 	}
 	var data LannoFileData
 	err = json.Unmarshal(byteValue, &data)
 	if err != nil {
-		fmt.Println("Error parsing JSON:", err)
 		return map[string]FileInfo{}
 	}
 	fileInfoMap := make(map[string]FileInfo)
@@ -244,7 +240,7 @@ func GoExecStatCommand(command string) string {
 	cmd.Stdout = &out
 	err := cmd.Run()
 	if err != nil {
-		log.Fatal(err)
+		return ""
 	}
 	result := out.String()
 	if runtime.GOOS == "linux" {
@@ -270,7 +266,7 @@ func GetInfoFromFileSystem(path string) CommandItem {
 		lastUpdatedTimeCommand = "stat -f %Sm " + path
 		lastVisitedTimeCommand = "stat -f %Sa " + path
 	} else {
-		fmt.Println("Running on a different operating system")
+		// Running on a different operating system
 	}
 
 	return CommandItem{
@@ -285,7 +281,7 @@ func GetTableItems(path string) []table.Row {
 	lannoInfoMap := GetInfoFromAnnoFile(path)
 	files, err := os.ReadDir(path)
 	if err != nil {
-		log.Fatal(err)
+		return []table.Row{}
 	}
 	var resultTable []table.Row
 	for _, file := range files {
@@ -302,7 +298,7 @@ func GetTableItems(path string) []table.Row {
 		filename := truncateText(icon+" "+file.Name(), 30)  // reasonable default
 		tags := truncateText(strings.Join(lannoinfoItem.Tags, ", "), 20)
 		desc := truncateText(lannoinfoItem.Description, 50)
-		
+
 		row := table.NewRow(table.RowData{
 			columnKeyFilename:    filename,
 			columnKeyTags:        tags,
@@ -361,32 +357,161 @@ func truncateText(text string, width int) string {
 	return string(runes[:width-3]) + "..."
 }
 
+// Add this type near the top of the file with other types
+type refreshMsg struct{}
+
+// Add this new type for screen clearing
+type clearScreenMsg struct{}
+
+func RefreshTableModel(m FileModel) FileModel {
+	// Clear any existing state to prevent duplication
+	m.table = nil
+	
+	// Get fresh data
+	rows := GetTableItems(".")
+	
+	// Get current table properties
+	width, _, err := term.GetSize(0)
+	if err != nil {
+		width = 80
+	}
+	
+	// Calculate column widths
+	availableWidth := width - 6
+	nameWidth := (availableWidth * 30) / 100
+	tagsWidth := (availableWidth * 20) / 100
+	descWidth := availableWidth - nameWidth - tagsWidth
+	
+	// Create new columns with same properties
+	columns := []table.Column{
+		table.NewColumn(columnKeyFilename, "Name", nameWidth).WithFiltered(true),
+		table.NewColumn(columnKeyTags, "Tags", tagsWidth).WithFiltered(true),
+		table.NewColumn(columnKeyDescription, "Description", descWidth),
+	}
+	// Calculate dynamic name column width based on max filename length
+	maxNameWidth := 0
+	for _, row := range rows {
+		if filename, ok := row.Data[columnKeyFilename].(string); ok {
+			nameLen := len(filename) + 1 // Add 1 for padding
+			if nameLen > maxNameWidth {
+				maxNameWidth = nameLen
+			}
+		}
+	}
+	
+	// Ensure name column width is reasonable (not too small or too large)
+	if maxNameWidth < 10 {
+		maxNameWidth = 10 // Minimum width
+	} else if maxNameWidth > nameWidth {
+		maxNameWidth = nameWidth // Cap at original allocation
+	}
+	
+	// Redistribute the space - give any saved space to description
+	descWidth = availableWidth - maxNameWidth - tagsWidth
+	
+	// Update column widths
+	columns[0].Width = maxNameWidth // Name column
+	columns[2].Width = descWidth    // Description column
+
+	// Create a completely new table
+	t := table.New(columns).
+		WithFiltered(true).
+		WithFocused(true).
+		WithPageSize(15).
+		WithRows(rows)
+	
+	// Apply styles
+	s := table.DefaultStyles()
+	t.SetStyles(s)
+	
+	// Update model with new table and rows
+	m.table = t
+	m.allRows = rows
+	
+	return m
+}
+
 func (m FileModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var cmds []tea.Cmd
 
+	// Handle clear screen message
+	if _, ok := msg.(clearScreenMsg); ok {
+		return RefreshTableModel(m), nil
+	}
+
+	// Handle refresh message
+	if _, ok := msg.(refreshMsg); ok {
+		// Use the dedicated refresh function
+		return RefreshTableModel(m), nil
+	}
+
+	// Handle window size changes
+	if _, ok := msg.(tea.WindowSizeMsg); ok {
+		// First clear the screen, then rebuild the model
+		return m, tea.Sequence(
+			tea.ClearScreen,
+			func() tea.Msg { return clearScreenMsg{} },
+		)
+	}
+
 	if keyMsg, ok := msg.(tea.KeyMsg); ok {
-		if m.searchMode {
+		if m.inputMode {
+			switch keyMsg.String() {
+			case "enter":
+				// Process the input
+				command := strings.TrimSpace(m.inputBuffer)
+				if command != "" {
+					words := strings.Fields(command)
+					TagCommand(words, m.inputTarget)
+				}
+				m.inputMode = false
+				m.inputBuffer = ""
+				m.inputTarget = ""
+				// Return a command to refresh the model after processing
+				return m, func() tea.Msg { return refreshMsg{} }
+			case "esc":
+				m.inputMode = false
+				m.inputBuffer = ""
+				m.inputTarget = ""
+				// Also refresh when canceling input mode
+				return m, func() tea.Msg { return refreshMsg{} }
+			case "backspace", "ctrl+h":
+				if len(m.inputBuffer) > 0 {
+					m.inputBuffer = m.inputBuffer[:len(m.inputBuffer)-1]
+				}
+				return m, nil
+			default:
+				// Append single-character keys to the input buffer
+				if len(keyMsg.String()) == 1 {
+					m.inputBuffer += keyMsg.String()
+				}
+				return m, nil
+			}
+		} else if m.searchMode {
 			switch keyMsg.String() {
 			case "enter":
 				m.searchMode = false
+				return m, func() tea.Msg { return refreshMsg{} }
 			case "esc":
 				m.searchMode = false
 				m.searchQuery = ""
-				// Reset rows to show all entries.
-				m.table.WithRows(m.allRows)
+				// Reset rows to show all entries
+				m.table = m.table.WithRows(m.allRows)
+				return m, nil
 			case "backspace", "ctrl+h":
 				if len(m.searchQuery) > 0 {
 					m.searchQuery = m.searchQuery[:len(m.searchQuery)-1]
 				}
-				m.table.WithRows(filterRows(m.allRows, m.searchQuery))
+				m.table = m.table.WithRows(filterRows(m.allRows, m.searchQuery))
+				return m, nil
 			default:
 				// Append single-character keys to the query.
 				if len(keyMsg.String()) == 1 {
 					m.searchQuery += keyMsg.String()
-					m.table.WithRows(filterRows(m.allRows, m.searchQuery))
+					m.table = m.table.WithRows(filterRows(m.allRows, m.searchQuery))
 				}
+				return m, nil
 			}
-			return m, tea.Batch(cmds...)
 		} else if keyMsg.String() == "/" {
 			m.searchMode = true
 			m.searchQuery = ""
@@ -396,11 +521,29 @@ func (m FileModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		switch keyMsg.String() {
 		case "ctrl+c", "q":
 			cmds = append(cmds, tea.Quit)
+		case "f5", "r":
+			// Manual refresh
+			return m, func() tea.Msg { return refreshMsg{} }
 		case "ctrl+e":
-			selected := m.table.SelectedRows()
-			if len(selected) > 0 {
-				filename := selected[0].Data[columnKeyFilename].(string)
-				cmds = append(cmds, launchEditor(filename))
+			// Get the selected file
+			if len(m.table.SelectedRows()) > 0 {
+				selectedRow := m.table.SelectedRows()[0]
+				if filename, ok := selectedRow.Data[columnKeyFilename].(string); ok {
+					// Extract just the filename without icon
+					parts := strings.SplitN(filename, " ", 2)
+					if len(parts) > 1 {
+						filename = parts[1]
+					}
+					// Remove ellipsis if present
+					filename = strings.TrimSuffix(filename, "...")
+					
+					// Enter input mode
+					m.inputMode = true
+					m.inputPrompt = "Enter command for " + filename + ": "
+					m.inputBuffer = ""
+					m.inputTarget = filename
+					return m, nil
+				}
 			}
 		}
 	}
@@ -412,25 +555,6 @@ func (m FileModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	}
 
 	return m, tea.Batch(cmds...)
-}
-
-func launchEditor(filename string) tea.Cmd {
-	return func() tea.Msg {
-		editor := os.Getenv("EDITOR")
-		if editor == "" {
-			editor = "vim"
-		}
-		cmd := exec.Command(editor, filename)
-		cmd.Stdin = os.Stdin
-		cmd.Stdout = os.Stdout
-		cmd.Stderr = os.Stderr
-
-		if err := cmd.Run(); err != nil {
-			log.Printf("Error running editor: %v", err)
-		}
-
-		return nil
-	}
 }
 
 func filterRows(rows []table.Row, query string) []table.Row {

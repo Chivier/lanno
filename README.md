@@ -79,6 +79,62 @@ This will attach the provided description to the specified file.
     ```
     This will add the description "This script processes data." to `example.py`.
 
+
 ---
 
 By using Lanno, you can ensure your projects are well-documented and easily understandable by anyone who accesses your code. Happy coding!
+
+## Features
+
+- Tag files with custom labels
+- Add descriptions to files
+- Interactive file browser with search capabilities
+- Command-line interface for quick tagging
+
+## Usage
+
+### Command Line
+
+```bash
+lanno <file> <command>
+```
+
+Commands:
+- `+<tag>` - Add a tag to a file
+- `-<tag>` - Remove a tag from a file
+- `<description>` - Set description for a file (use empty string to remove)
+
+Examples:
+
+```bash
+lanno document.txt +work     # Add #work tag to document.txt
+lanno document.txt -work     # Remove #work tag from document.txt
+lanno document.txt "Important work document"  # Set description
+lanno document.txt +urgent "Important work document"  # Add tag and description
+lanno document.txt ""        # Remove description
+```
+
+### Interactive Mode
+
+Launch the interactive file browser:
+```
+lanno
+```
+
+Navigation:
+- Arrow keys to navigate files
+- `/` to search files
+- `ctrl+e` to edit selected file's tags or description
+- `f5` or `r` to refresh the file list
+- `q` or `ctrl+c` to quit
+
+When editing (after pressing `ctrl+e`):
+- Type commands like `+tag` to add tags
+- Type `-tag` to remove tags
+- Type any text without `+` or `-` prefix to set description
+- Press Enter to submit
+- Press Esc to cancel
+
+## File Format
+
+Lanno stores file metadata in a `.lanno.json` file in the current directory.
