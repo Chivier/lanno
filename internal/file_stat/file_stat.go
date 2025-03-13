@@ -470,8 +470,21 @@ func (m FileModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	// Handle refresh message
 	if _, ok := msg.(refreshMsg); ok {
-		// Use the dedicated refresh function
-		return RefreshTableModel(m), nil
+		// Store the current selection index before refreshing
+		var selectedIndex int
+		if len(m.table.SelectedRows()) > 0 {
+			selectedIndex = m.table.Selected
+		}
+		
+		// Refresh the model
+		refreshedModel := RefreshTableModel(m)
+		
+		// Restore the selection if possible
+		if selectedIndex >= 0 && selectedIndex < len(refreshedModel.table.Rows) {
+			refreshedModel.table.Selected = selectedIndex
+		}
+		
+		return refreshedModel, nil
 	}
 
 	// Handle window size changes
@@ -496,11 +509,19 @@ func (m FileModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					TagCommand([]string{}, m.inputTarget)
 				}
 
+				// Store the current selection index before exiting input mode
+				selectedIndex := m.table.Selected
+				
 				m.inputMode = false
 				m.inputBuffer = ""
 				m.inputTarget = ""
+				
 				// Return a command to refresh the model after processing
-				return m, func() tea.Msg { return refreshMsg{} }
+				return m, func() tea.Msg { 
+					// Store the selection index in the model before refreshing
+					m.table.Selected = selectedIndex
+					return refreshMsg{} 
+				}
 			case "esc":
 				m.inputMode = false
 				m.inputBuffer = ""
