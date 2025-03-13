@@ -1,6 +1,6 @@
 # Lanno
 
-![Lanno Logo](image/logo.webp)
+<img src="image/logo.webp" alt="Lanno Logo" style="width: 40%;">
 
 ## What is Lanno?
 
