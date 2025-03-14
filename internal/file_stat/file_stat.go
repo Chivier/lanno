@@ -312,6 +312,19 @@ func GetTableItems(path string) []table.Row {
 	if err != nil {
 		return []table.Row{}
 	}
+	
+	// Get terminal width for proper truncation
+	width, _, err := term.GetSize(0)
+	if err != nil {
+		width = 80
+	}
+	
+	// Calculate column widths based on terminal size
+	availableWidth := width - 6
+	nameWidth := (availableWidth * 30) / 100
+	tagsWidth := (availableWidth * 20) / 100
+	descWidth := availableWidth - nameWidth - tagsWidth
+	
 	var resultTable []table.Row
 	for _, file := range files {
 		if strings.HasPrefix(file.Name(), ".") {
@@ -323,10 +336,10 @@ func GetTableItems(path string) []table.Row {
 			icon = "📁"
 		}
 		
-		// Truncate without column widths for now
-		filename := truncateText(icon+" "+file.Name(), 30)  // reasonable default
-		tags := truncateText(strings.Join(lannoinfoItem.Tags, ", "), 20)
-		desc := truncateText(lannoinfoItem.Description, 50)
+		// Use calculated widths for truncation
+		filename := truncateText(icon+" "+file.Name(), nameWidth)
+		tags := truncateText(strings.Join(lannoinfoItem.Tags, ", "), tagsWidth)
+		desc := truncateText(lannoinfoItem.Description, descWidth)
 
 		row := table.NewRow(table.RowData{
 			columnKeyFilename:    filename,
