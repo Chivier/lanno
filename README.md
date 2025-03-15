@@ -20,6 +20,48 @@ While tools like Copilot are great for auto-completing code, they often fall sho
 - **Ease of Collaboration:** Sharing projects with colleagues or friends can be cumbersome when they're unfamiliar with the purpose of each file. Lanno allows users to document file usage efficiently, eliminating the need to painstakingly explain each file's function individually.
 - **Enhanced Documentation:** Sometimes, writing detailed documentation for every file is time-consuming. Lanno provides a quick way to add relevant information directly to the files, making it accessible and less likely to be overlooked.
 
+## Installation
+
+### Using Prebuilt Binaries
+
+1. Download the latest release from [GitHub Releases](https://github.com/Chivier/lanno/releases):
+
+   ```bash
+   # For macOS ARM (Apple Silicon)
+   wget https://github.com/Chivier/lanno/releases/latest/download/lanno_MacOS_Arm
+   
+   # For x86_64 systems
+   wget https://github.com/Chivier/lanno/releases/latest/download/lanno_x86_64
+   ```
+
+2. Make the binary executable and move it to your local bin directory:
+
+   ```bash
+   # For macOS ARM (Apple Silicon)
+   chmod +x lanno_MacOS_Arm
+   mv lanno_MacOS_Arm ~/.local/bin/lanno
+   
+   # For x86_64 systems
+   chmod +x lanno_x86_64
+   mv lanno_x86_64 ~/.local/bin/lanno
+   ```
+
+3. Ensure `~/.local/bin` is in your PATH. If not, add the following to your shell profile (`.bashrc`, `.zshrc`, etc.):
+
+   ```bash
+   export PATH="$HOME/.local/bin:$PATH"
+   ```
+
+4. Restart your terminal or run `source ~/.bashrc` (or equivalent) to apply changes.
+
+5. Verify the installation:
+
+   ```bash
+   lanno --version
+   ```
+
+
+
 ## How to Use Lanno
 
 ### Viewing Annotations
