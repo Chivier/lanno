@@ -34,7 +34,7 @@ Interactive Mode:
 `
 
 // Version represents the current application version
-const Version = "1.1.1"
+const Version = "1.2.0"
 
 func printHelp() {
 	fmt.Print(helpText)

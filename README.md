@@ -132,6 +132,7 @@ By using Lanno, you can ensure your projects are well-documented and easily unde
 - Add descriptions to files
 - Interactive file browser with search capabilities
 - Command-line interface for quick tagging
+- Vim-style navigation and paging
 
 ## Usage
 
@@ -165,6 +166,9 @@ lanno
 
 Navigation:
 - Arrow keys to navigate files
+- `h` and `l` for page navigation
+- `gg` to jump to the first page
+- `G` to jump to the last page
 - `/` to search files
 - `ctrl+e` to edit selected file's tags or description
 - `f5` or `r` to refresh the file list
