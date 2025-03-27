@@ -306,6 +306,18 @@ func GetInfoFromFileSystem(path string) CommandItem {
 	}
 }
 
+// Add these as package-level variables
+var (
+	termWidth  int = 80 // default width
+	termHeight int = 24 // default height
+)
+
+// Add this function to update terminal dimensions
+func SetTerminalDimensions(width, height int) {
+	termWidth = width
+	termHeight = height
+}
+
 func GetTableItems(path string) []table.Row {
 	lannoInfoMap := GetInfoFromAnnoFile(path)
 	files, err := os.ReadDir(path)
@@ -313,14 +325,8 @@ func GetTableItems(path string) []table.Row {
 		return []table.Row{}
 	}
 	
-	// Get terminal width for proper truncation
-	width, _, err := term.GetSize(0)
-	if err != nil {
-		width = 80
-	}
-	
-	// Calculate column widths based on terminal size
-	availableWidth := width - 6
+	// Use termWidth instead of getting it directly
+	availableWidth := termWidth - 6
 	nameWidth := (availableWidth * 30) / 100
 	tagsWidth := (availableWidth * 20) / 100
 	descWidth := availableWidth - nameWidth - tagsWidth
@@ -352,18 +358,11 @@ func GetTableItems(path string) []table.Row {
 }
 
 func NewModel() FileModel {
-	width, _, err := term.GetSize(0)
-	if err != nil {
-		width = 80
-	}
-	
-	// Calculate column widths
-	// Name 30%, Tags 20%, Description 50% of available width
-	// Account for borders (2 vertical lines = 2 chars)
-	availableWidth := width - 6
+	// Use termWidth instead of getting it directly
+	availableWidth := termWidth - 6
 	nameWidth := (availableWidth * 30) / 100
 	tagsWidth := (availableWidth * 20) / 100
-	descWidth := availableWidth - nameWidth - tagsWidth // Use remaining space
+	descWidth := availableWidth - nameWidth - tagsWidth
 	
 	columns := []table.Column{
 		table.NewColumn(columnKeyFilename, "Name", nameWidth).WithFiltered(true),
@@ -372,10 +371,18 @@ func NewModel() FileModel {
 	}
 	
 	rows := GetTableItems(".")
+	
+	// Calculate page size based on terminal height
+	// Account for: header(1) + separator(1) + page indicator(1) + prompt(1) + buffer(1) = 5 lines
+	pageSize := termHeight - 5
+	if pageSize < 1 {
+		pageSize = 1
+	}
+	
 	t := table.New(columns).
 		WithFiltered(true).
 		WithFocused(true).
-		WithPageSize(15).
+		WithPageSize(pageSize). // Use dynamic page size
 		WithRows(rows)
 	
 	s := table.DefaultStyles()
@@ -455,11 +462,17 @@ func RefreshTableModel(m FileModel) FileModel {
 	columns[0].Width = maxNameWidth // Name column
 	columns[2].Width = descWidth    // Description column
 
+	// Calculate dynamic page size based on current terminal height
+	pageSize := termHeight - 5 // Same calculation as in NewModel
+	if pageSize < 1 {
+		pageSize = 1
+	}
+
 	// Create a completely new table
 	t := table.New(columns).
 		WithFiltered(true).
 		WithFocused(true).
-		WithPageSize(15).
+		WithPageSize(pageSize). // Use dynamic page size
 		WithRows(rows)
 	
 	// Apply styles
@@ -501,12 +514,22 @@ func (m FileModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	}
 
 	// Handle window size changes
-	if _, ok := msg.(tea.WindowSizeMsg); ok {
-		// First clear the screen, then rebuild the model
-		return m, tea.Sequence(
-			tea.ClearScreen,
-			func() tea.Msg { return clearScreenMsg{} },
-		)
+	if sizeMsg, ok := msg.(tea.WindowSizeMsg); ok {
+		// Update stored dimensions
+		SetTerminalDimensions(sizeMsg.Width, sizeMsg.Height)
+		
+		// Store current selection
+		selectedIndex := m.table.Selected
+		
+		// Refresh model with new dimensions
+		refreshedModel := RefreshTableModel(m)
+		
+		// Restore selection
+		if selectedIndex >= 0 && selectedIndex < len(refreshedModel.table.Rows) {
+			refreshedModel.table.Selected = selectedIndex
+		}
+		
+		return refreshedModel, nil
 	}
 
 	if keyMsg, ok := msg.(tea.KeyMsg); ok {

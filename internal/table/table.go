@@ -92,17 +92,21 @@ type Table struct {
 	focused  bool          // Whether the table has focus
 	filtered bool          // Whether filtering is enabled
 	styles   Styles        // Visual styles for the table
+	currentPage int        // Add this new field to track current page
+	lastKey string        // Add this field to track the last key pressed for "gg" command
 }
 
 // New creates a new table instance with the provided columns.
 func New(columns []Column) *Table {
 	return &Table{
-		Columns:  columns,
-		Rows:     []Row{},
-		PageSize: 10,
-		Selected: 0,
-		focused:  false,
-		filtered: false,
+		Columns:    columns,
+		Rows:       []Row{},
+		PageSize:   10,
+		Selected:   0,
+		focused:    false,
+		filtered:   false,
+		currentPage: 0,    // Initialize current page
+		lastKey:    "",
 	}
 }
 
@@ -161,20 +165,47 @@ func (t *Table) SetStyles(s Styles) *Table {
 // Table Interaction Methods
 //------------------------------------------------------------------------------
 
-// Update handles key events to navigate through the table rows.
+// Update handles key events and terminal resize
 func (t *Table) Update(msg tea.Msg) (*Table, tea.Cmd) {
 	if keyMsg, ok := msg.(tea.KeyMsg); ok {
-		switch keyMsg.String() {
+		key := keyMsg.String()
+		switch key {
 		case "up", "k":
-			// Move selection up
 			if t.Selected > 0 {
 				t.Selected--
+				// Update page if selection moves above current page
+				if t.Selected < t.currentPage*t.PageSize {
+					t.currentPage--
+				}
 			}
 		case "down", "j":
-			// Move selection down
 			if t.Selected < len(t.Rows)-1 {
 				t.Selected++
+				// Update page if selection moves below current page
+				if t.Selected >= (t.currentPage+1)*t.PageSize {
+					t.currentPage++
+				}
 			}
+		case "h": // Page up
+			t.currentPage = max(0, t.currentPage-1)
+			t.Selected = max(0, t.currentPage*t.PageSize)
+		case "l": // Page down
+			maxPage := (len(t.Rows) - 1) / t.PageSize
+			t.currentPage = min(maxPage, t.currentPage+1)
+			t.Selected = min(len(t.Rows)-1, (t.currentPage+1)*t.PageSize-1)
+		case "G": // Jump to bottom
+			t.Selected = len(t.Rows) - 1
+			t.currentPage = (t.Selected) / t.PageSize
+		case "g": // Potential "gg" command
+			if t.lastKey == "g" {
+				t.Selected = 0
+				t.currentPage = 0
+				t.lastKey = ""
+			} else {
+				t.lastKey = "g"
+			}
+		default:
+			t.lastKey = ""
 		}
 	}
 	return t, nil
@@ -223,8 +254,13 @@ func (t *Table) View() string {
 	}
 	b.WriteString(separatorLine)
 	
+	// Calculate visible rows for current page
+	startIdx := t.currentPage * t.PageSize
+	endIdx := min(startIdx+t.PageSize, len(t.Rows))
+	visibleRows := t.Rows[startIdx:endIdx]
+	
 	// Render rows
-	for i, row := range t.Rows {
+	for i, row := range visibleRows {
 		b.WriteString("\n")
 		rowContent := ""
 		for j, col := range t.Columns {
@@ -270,15 +306,36 @@ func (t *Table) View() string {
 			
 			rowContent += cell
 		}
-		// Apply appropriate style based on selection state
-		if t.focused && i == t.Selected {
-			rowContent = t.styles.Selected.Render(rowContent) // Highlight selected row
+		// Adjust the selection highlighting to account for paging
+		if t.focused && (startIdx+i) == t.Selected {
+			rowContent = t.styles.Selected.Render(rowContent)
 		} else {
-			rowContent = t.styles.Normal.Render(rowContent) // Normal styling for other rows
+			rowContent = t.styles.Normal.Render(rowContent)
 		}
 		
 		b.WriteString(rowContent)
 	}
 	
+	// Add page indicator
+	totalPages := (len(t.Rows) + t.PageSize - 1) / t.PageSize
+	if totalPages > 1 {
+		b.WriteString(fmt.Sprintf("\nPage %d/%d", t.currentPage+1, totalPages))
+	}
+	
 	return b.String()
+}
+
+// Helper functions
+func min(a, b int) int {
+	if a < b {
+		return a
+	}
+	return b
+}
+
+func max(a, b int) int {
+	if a > b {
+		return a
+	}
+	return b
 }
