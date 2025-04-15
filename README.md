@@ -22,6 +22,17 @@ While tools like Copilot are great for auto-completing code, they often fall sho
 
 ## Installation
 
+### Using Homebrew
+
+```
+brew install anyin233/useful-tools/lanno
+```
+or
+```
+brew tap anyin233/useful-tools
+brew install lanno
+```
+
 ### Using Prebuilt Binaries
 
 1. Download the latest release from [GitHub Releases](https://github.com/Chivier/lanno/releases):
